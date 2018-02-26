@@ -8,9 +8,10 @@
 // from Kenny Kerr's (https://kennykerr.ca) Pluralsight Course on COM
 // Essentials.
 //****************************************************************************
-// v0.6.1
-// 2018-01-27T13:53:00+01
+// v0.6.2
+// 2018-02-26T23:24:00+01
 //****************************************************************************
+// v0.6.2: Added support for additional messages in ComException/CheckHR...
 // v0.6.1: Changed the return type of CheckHR to be more useful in corner
 //         cases (conditionals) and added CheckHR_OKorFALSE to help
 //         for example with COM enumerators like IEnumFORMATETC.
@@ -44,15 +45,19 @@ namespace Markus_M_Egger
 
 
 		// COM function result checker prototypes
-		inline bool CheckHR(const HRESULT& hr);
-		inline bool CheckHR_OKorFALSE(const HRESULT& hr);
+		inline bool CheckHR(const HRESULT& hr, LPCTSTR lpszMessage = nullptr);
+		inline bool CheckHR_OKorFALSE(const HRESULT& hr, LPCTSTR lpszMessage = nullptr);
 
 
 		// Type for COM exceptions
 		struct ComException
 		{
-			explicit ComException(const HRESULT& hr) : result(hr)
+			explicit ComException(
+				const HRESULT& hr,
+				LPCTSTR lpszMessage = nullptr)
+					: result(hr)
 			{
+				this->SetMessage(lpszMessage);
 			}
 
 			HRESULT hr(void) const
@@ -60,8 +65,28 @@ namespace Markus_M_Egger
 				return result;
 			}
 
+			LPCTSTR message(void) const
+			{
+				return szMessage;
+			}
+
 		private:
+
+			void SetMessage(LPCTSTR lpszMessage)
+			{
+				ZeroMemory(szMessage, sizeof(szMessage));
+
+				if (nullptr != lpszMessage)
+				{
+					_tcscpy_s(
+						szMessage,
+						lpszMessage
+					);
+				}
+			}
+
 			HRESULT result;
+			TCHAR szMessage[256];
 		};
 
 
@@ -94,6 +119,7 @@ namespace Markus_M_Egger
 			}
 
 		private:
+
 			HRESULT initResult{ E_FAIL };
 		};
 
@@ -128,18 +154,21 @@ namespace Markus_M_Egger
 			}
 
 		private:
+
 			HRESULT initResult{ E_FAIL };
 		};
 
 
 		// COM function result checker
-		inline bool CheckHR(const HRESULT& hr)
+		inline bool CheckHR(
+			const HRESULT& hr,
+			LPCTSTR lpszMessage)
 		{
 			_ASSERTE(S_OK == hr);
 
 			if (S_OK != hr)
 			{
-				throw ComException{ hr };
+				throw ComException{ hr, lpszMessage };
 			}
 
 			return true;
@@ -147,13 +176,15 @@ namespace Markus_M_Egger
 
 
 		// COM function result checker - S_FALSE is ok, too.
-		inline bool CheckHR_OKorFALSE(const HRESULT& hr)
+		inline bool CheckHR_OKorFALSE(
+			const HRESULT& hr,
+			LPCTSTR lpszMessage)
 		{
 			_ASSERTE(S_OK == hr || S_FALSE == hr);
 
 			if (!(S_OK == hr || S_FALSE == hr))
 			{
-				throw ComException{ hr };
+				throw ComException{ hr, lpszMessage };
 			}
 
 			return true;
